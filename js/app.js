@@ -1,3 +1,26 @@
+/* --- Firebase Configuration (User Provided) --- */
+const firebaseConfig = {
+    apiKey: "AIzaSyC7ALvfNMTHSC1W2LPQ6QrdSb11ML8HBCY",
+    authDomain: "the-engine-room-aa823.firebaseapp.com",
+    projectId: "the-engine-room-aa823",
+    storageBucket: "the-engine-room-aa823.firebasestorage.app",
+    messagingSenderId: "536699175932",
+    appId: "1:536699175932:web:0da109b14ec27c946ba879"
+};
+
+// Initialize Firebase (Compat)
+let db;
+try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    console.log("Firebase Initialized");
+} catch (e) {
+    console.error("Firebase Init Error:", e);
+}
+
+// Global Local State (Synced from Firestore)
+let localApps = [];
+
 document.addEventListener('DOMContentLoaded', () => {
 
     /* --- Global: Auth Check & Active Nav --- */
@@ -6,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Critical Security Check (Anti-Flash)
     if (currentPath.includes('dashboard.html')) {
         checkAuthSecure();
+        startRealtimeSync(); // Start Listening to Firestore
     }
 
     // Highlight Nav
@@ -53,6 +77,35 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+/* --- Firestore Sync Logic --- */
+
+function startRealtimeSync() {
+    if (!db) return;
+
+    // Listen to 'applications' collection
+    db.collection("applications").onSnapshot((querySnapshot) => {
+        localApps = [];
+        querySnapshot.forEach((doc) => {
+            localApps.push({ firestoreId: doc.id, ...doc.data() });
+        });
+
+        console.log("Updated from Cloud:", localApps.length, "apps");
+
+        // Refresh UI if on dashboard
+        if (document.querySelector('.kanban-board')) {
+            refreshBoard(document.getElementById('dashboard-search')?.value || '');
+        }
+    }, (error) => {
+        console.error("Sync Error:", error);
+        showToast("Error syncing with database", "error");
+    });
+}
+
+// Helper to get apps (read from synced local state)
+function getApps() {
+    return localApps;
+}
+
 /* --- Security Functions --- */
 
 // Fix for Back-Button Cache (BFCache)
@@ -92,7 +145,6 @@ function checkAuthSecure() {
 
 function performLogout() {
     sessionStorage.removeItem('engineRoomAuth');
-    // Also clear localStorage just in case from old version
     localStorage.removeItem('engineRoomAuth');
     window.location.href = 'index.html';
 }
@@ -130,6 +182,7 @@ const COLUMNS = {
 };
 
 function initDashboard() {
+    // Initial paint (might be empty until sync happens)
     refreshBoard();
 
     // Setup Modal Close
@@ -158,17 +211,18 @@ function initDashboard() {
     const saveSettings = document.getElementById('save-settings-btn');
     const keyInput = document.getElementById('api-key-input');
     const modelInput = document.getElementById('api-model-input');
+    const testBtn = document.getElementById('test-conn-btn'); // Add Test Button ID
 
     if (settingsBtn) {
         settingsBtn.onclick = () => {
             keyInput.value = localStorage.getItem('geminiApiKey') || '';
-            modelInput.value = localStorage.getItem('geminiModel') || 'gemini-1.5-flash';
+            modelInput.value = localStorage.getItem('geminiModel') || 'gemini-3-flash'; // UPDATED DEFAULT
             settingsModal.classList.add('open');
         };
         closeSettings.onclick = () => settingsModal.classList.remove('open');
         saveSettings.onclick = () => {
             const key = keyInput.value.trim();
-            const model = modelInput.value.trim() || 'gemini-1.5-flash';
+            const model = modelInput.value.trim() || 'gemini-3-flash';
 
             if (key) {
                 localStorage.setItem('geminiApiKey', key);
@@ -186,7 +240,7 @@ function initDashboard() {
         if (testBtn) {
             testBtn.onclick = async () => {
                 const key = keyInput.value.trim();
-                const model = modelInput.value.trim() || 'gemini-1.5-flash';
+                const model = modelInput.value.trim() || 'gemini-3-flash';
 
                 if (!key) {
                     showToast('Please enter an API Key first.', 'error');
@@ -256,7 +310,7 @@ async function generateAIReport(app) {
     content.style.display = 'none';
 
     const apiKey = localStorage.getItem('geminiApiKey');
-    const model = localStorage.getItem('geminiModel') || 'gemini-1.5-flash';
+    const model = localStorage.getItem('geminiModel') || 'gemini-3-flash'; // UPDATED DEFAULT
 
     if (apiKey) {
         // --- REAL AI MODE ---
@@ -299,6 +353,13 @@ async function generateAIReport(app) {
             // Clean markdown jsons if present
             const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
             const data = JSON.parse(cleanText);
+
+            // Save to Firestore so we don't pay to re-analyze
+            if (app.firestoreId && db) {
+                db.collection("applications").doc(app.firestoreId).update({
+                    aiAnalysis: data
+                });
+            }
 
             finalizeAI(data.score, data.verdict, data.summary, btn, content, scoreEl, verdictEl, summaryEl);
             showToast('Analysis complete', 'success');
@@ -397,16 +458,8 @@ function typeText(element, text) {
     type();
 }
 
-function getApps() {
-    return JSON.parse(localStorage.getItem('engineRoomApps') || '[]');
-}
-
-function saveApps(apps) {
-    localStorage.setItem('engineRoomApps', JSON.stringify(apps));
-}
-
 function refreshBoard(filterText = '') {
-    const apps = getApps();
+    const apps = getApps(); // Now returns localApps synced from Firestore
     const board = document.querySelector('.kanban-board');
     if (!board) return;
     board.innerHTML = '';
@@ -444,14 +497,16 @@ function refreshBoard(filterText = '') {
                 const card = document.createElement('div');
                 card.className = 'kanban-card';
                 card.draggable = true;
-                card.id = `card-${app.id}`;
-                card.dataset.id = app.id;
+                // Use firestoreId if available, fallback to legacy id
+                const cardId = app.firestoreId || app.id;
+                card.id = `card-${cardId}`;
+                card.dataset.id = cardId;
 
                 card.ondragstart = drag;
 
                 card.onclick = (e) => {
                     if (window.getSelection().toString().length === 0) {
-                        openAppModal(app.id);
+                        openAppModal(cardId);
                     }
                 };
 
@@ -537,20 +592,33 @@ function drag(ev) {
 
 function drop(ev) {
     ev.preventDefault();
-    const id = parseInt(ev.dataTransfer.getData("text"));
+    const id = ev.dataTransfer.getData("text");
     let target = ev.target;
     while (!target.classList.contains('column-body')) {
         target = target.parentElement;
         if (!target) return;
     }
-    const newStatus = target.dataset.status;
+
+    // Find app by Firestore ID (String) or Fallback ID (Int)
     const apps = getApps();
-    const appIndex = apps.findIndex(a => a.id === id);
-    if (appIndex > -1 && apps[appIndex].status !== newStatus) {
-        apps[appIndex].status = newStatus;
-        saveApps(apps);
+    const newStatus = target.dataset.status;
+
+    const app = apps.find(a => a.firestoreId === id || String(a.id) === id);
+
+    if (app && app.status !== newStatus) {
+        // Optimistic Update
+        app.status = newStatus;
         refreshBoard(document.getElementById('dashboard-search')?.value || '');
-        showToast(`Moved application to ${COLUMNS[newStatus]}`, 'success');
+
+        // Cloud Update
+        if (app.firestoreId && db) {
+            db.collection("applications").doc(app.firestoreId).update({ status: newStatus })
+                .then(() => showToast(`Moved to ${COLUMNS[newStatus]}`, 'success'))
+                .catch(err => {
+                    console.error("Move failed", err);
+                    showToast("Failed to save move", "error");
+                });
+        }
     }
 }
 
@@ -560,7 +628,8 @@ let currentAppId = null;
 function openAppModal(id) {
     currentAppId = id;
     const apps = getApps();
-    const app = apps.find(a => a.id === id);
+    // Allow ID match by string or number (legacy support)
+    const app = apps.find(a => a.firestoreId === id || String(a.id) === String(id));
     if (!app) return;
 
     document.getElementById('modal-title').innerText = app['business-name'] || 'Application';
@@ -582,13 +651,23 @@ function openAppModal(id) {
     document.getElementById('modal-status-select').value = app.status;
 
     // Reset AI Section
-    document.getElementById('ai-content').style.display = 'none';
     const aiBtn = document.getElementById('ai-generate-btn');
-    aiBtn.innerText = 'Generate Report';
-    aiBtn.disabled = false;
+    const content = document.getElementById('ai-content');
 
-    // Attach AI Handler
-    aiBtn.onclick = () => generateAIReport(app);
+    if (app.aiAnalysis) {
+        // Pre-fill if already analyzed
+        finalizeAI(app.aiAnalysis.score, app.aiAnalysis.verdict, app.aiAnalysis.summary,
+            aiBtn, content,
+            document.getElementById('ai-score'),
+            document.getElementById('ai-verdict'),
+            document.getElementById('ai-summary'));
+    } else {
+        content.style.display = 'none';
+        aiBtn.innerText = 'Generate Report';
+        aiBtn.disabled = false;
+        // Attach AI Handler
+        aiBtn.onclick = () => generateAIReport(app);
+    }
 
     document.getElementById('app-modal').classList.add('open');
 }
@@ -601,14 +680,23 @@ function closeModal() {
 function saveAppChanges() {
     if (!currentAppId) return;
     const apps = getApps();
-    const appIndex = apps.findIndex(a => a.id === currentAppId);
-    if (appIndex > -1) {
-        apps[appIndex].notes = document.getElementById('modal-notes').value;
-        apps[appIndex].status = document.getElementById('modal-status-select').value;
-        saveApps(apps);
-        closeModal();
-        refreshBoard(document.getElementById('dashboard-search')?.value || '');
-        showToast('Application updated successfully', 'success');
+    const app = apps.find(a => a.firestoreId === currentAppId || String(a.id) === String(currentAppId));
+
+    if (app) {
+        const newNotes = document.getElementById('modal-notes').value;
+        const newStatus = document.getElementById('modal-status-select').value;
+
+        if (app.firestoreId && db) {
+            db.collection("applications").doc(app.firestoreId).update({
+                notes: newNotes,
+                status: newStatus
+            }).then(() => {
+                showToast('Application updated successfully', 'success');
+                closeModal();
+            }).catch(err => {
+                showToast('Error updating application', 'error');
+            });
+        }
     }
 }
 
@@ -741,15 +829,31 @@ function submitApplication(form, btn) {
 
     const formData = new FormData(form);
     const data = Object.fromEntries(formData.entries());
-    data.id = Date.now();
+    data.id = Date.now(); // Legacy ID
     data.date = new Date().toLocaleDateString();
     data.status = 'New';
     data.notes = '';
 
-    const apps = JSON.parse(localStorage.getItem('engineRoomApps') || '[]');
-    apps.push(data);
-    localStorage.setItem('engineRoomApps', JSON.stringify(apps));
+    // FIRESTORE WRITE
+    if (db) {
+        db.collection("applications").add(data)
+            .then((docRef) => {
+                console.log("Document written with ID: ", docRef.id);
+                showSuccess(form);
+            })
+            .catch((error) => {
+                console.error("Error adding document: ", error);
+                alert("Error submitting application. Please try again.");
+                btn.disabled = false;
+                btn.innerText = 'Submit Application';
+            });
+    } else {
+        // Fallback or Initial Error
+        alert("Database not connected. Please contact admin.");
+    }
+}
 
+function showSuccess(form) {
     setTimeout(() => {
         const wrapper = form.closest('.application-wrapper');
         wrapper.innerHTML = `
@@ -765,5 +869,5 @@ function submitApplication(form, btn) {
                 </div>
             </div>
         `;
-    }, 1500);
+    }, 1000);
 }
