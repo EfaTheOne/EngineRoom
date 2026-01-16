@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apply | The Engine Room</title>
+    <meta name="description" content="Apply to Cochrane's premier business incubator.">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Oswald:wght@400;500;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <header id="main-header">
+        <div class="container">
+            <div class="logo"><a href="index.html">THE <span class="accent">ENGINE</span> ROOM</a></div>
+            <nav>
+                <a href="program.html">Program</a>
+                <a href="login.html">Sign In</a>
+                <a href="apply.html" class="btn btn-primary">Apply Now</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="page-header text-center" style="padding-top: 150px; padding-bottom: 30px;">
+            <div class="container">
+                <h1>Join The Engine Room</h1>
+                <p>Applications are open year-round. Rolling intake.</p>
+            </div>
+        </section>
+
+        <section id="apply">
+            <div class="container">
+                <div class="application-wrapper">
+                    <!-- Progress Bar -->
+                    <div class="wizard-progress">
+                        <div class="step active" data-step="0">
+                            <div class="step-circle">1</div>
+                            <div class="step-label">Founder</div>
+                        </div>
+                        <div class="step-line"></div>
+                        <div class="step" data-step="1">
+                            <div class="step-circle">2</div>
+                            <div class="step-label">Business</div>
+                        </div>
+                        <div class="step-line"></div>
+                        <div class="step" data-step="2">
+                            <div class="step-circle">3</div>
+                            <div class="step-label">Deep Dive</div>
+                        </div>
+                    </div>
+
+                    <form id="application-form" class="glass-form">
+                        <!-- Step 1: Founder Info -->
+                        <fieldset>
+                            <legend>Founder Details</legend>
+                            <div class="form-group">
+                                <label for="name">Full Name</label>
+                                <input type="text" id="name" name="name" required placeholder="Jane Doe">
+                            </div>
+                            <div class="form-group">
+                                <label for="email">Email Address</label>
+                                <input type="email" id="email" name="email" required placeholder="jane@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="phone">Phone Number</label>
+                                <input type="tel" id="phone" name="phone" required placeholder="(403) 555-0123">
+                            </div>
+                            <div class="form-group">
+                                <label for="linkedin">LinkedIn Profile (Optional)</label>
+                                <input type="url" id="linkedin" name="linkedin"
+                                    placeholder="https://linkedin.com/in/...">
+                            </div>
+                        </fieldset>
+
+                        <!-- Step 2: Business Info -->
+                        <fieldset>
+                            <legend>Business Snapshot</legend>
+                            <div class="form-group">
+                                <label for="business-name">Business Name (if applicable)</label>
+                                <input type="text" id="business-name" name="business-name" placeholder="Acme Corp">
+                            </div>
+                            <div class="form-group">
+                                <label for="stage">Current Stage</label>
+                                <select id="stage" name="stage" required>
+                                    <option value="" disabled selected>Select an option</option>
+                                    <option value="idea">Idea / Concept</option>
+                                    <option value="pre-seed">Pre-Seed / Prototype</option>
+                                    <option value="mvp">MVP Launched</option>
+                                    <option value="revenue">Generating Revenue</option>
+                                    <option value="scaling">Scaling</option>
+                                </select>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="description">Elevator Pitch</label>
+                                <textarea id="description" name="description" rows="3" required
+                                    placeholder="Describe your business in 2-3 sentences..."></textarea>
+                            </div>
+                        </fieldset>
+
+                        <!-- Step 3: Deep Dive -->
+                        <fieldset>
+                            <legend>Deep Dive</legend>
+                            <div class="form-group full-width">
+                                <label for="customers">Who are your target customers?</label>
+                                <textarea id="customers" name="customers" rows="2" required></textarea>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="revenue_model">Current revenue status and business model</label>
+                                <textarea id="revenue_model" name="revenue_model" rows="2" required></textarea>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="competitors">Who are your main competitors?</label>
+                                <textarea id="competitors" name="competitors" rows="2" required></textarea>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="funding">Have you received any past funding or support?</label>
+                                <textarea id="funding" name="funding" rows="2" required
+                                    placeholder="Grants, loans, other incubators..."></textarea>
+                            </div>
+                        </fieldset>
+
+                        <div class="form-actions">
+                            <!-- Nav buttons injected by JS -->
+                            <button type="submit" class="hidden">Submit</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 The Engine Room. A Cochrane Business Incubator Initiative.</p>
+            <p class="address">360 Railway Street W, Cochrane, AB</p>
+        </div>
+    </footer>
+    <script src="js/app.js"></script>
+</body>
+
+</html>

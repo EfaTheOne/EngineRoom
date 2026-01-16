@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In | The Engine Room</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Oswald:wght@400;500;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <header id="main-header">
+        <div class="container">
+            <div class="logo"><a href="index.html">THE <span class="accent">ENGINE</span> ROOM</a></div>
+            <nav>
+                <a href="program.html">Program</a>
+                <a href="login.html" class="accent">Sign In</a>
+                <a href="apply.html" class="btn btn-primary">Apply Now</a>
+            </nav>
+        </div>
+    </header>
+
+    <main style="min-height: 80vh; display: flex; align-items: center; justify-content: center;">
+        <div class="container">
+            <div class="glass-form" style="max-width: 400px; margin: 0 auto;">
+                <h2 class="text-center" style="margin-bottom: 30px;">Portal Access</h2>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+                    <p id="login-error" style="color: red; text-align: center; margin-top: 10px; display: none;">Invalid
+                        credentials</p>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 The Engine Room. Administrator Access Only.</p>
+        </div>
+    </footer>
+
+    <script src="js/app.js"></script>
+</body>
+
+</html>
