@@ -310,51 +310,15 @@ async function generateAIReport(app) {
     content.style.display = 'none';
 
     const apiKey = localStorage.getItem('geminiApiKey');
-    const model = localStorage.getItem('geminiModel') || 'gemini-3-flash'; // UPDATED DEFAULT
+    const userModel = localStorage.getItem('geminiModel') || 'gemini-3-flash';
 
     if (apiKey) {
         // --- REAL AI MODE ---
         try {
-            console.log(`Attempting AI Analysis using ${model}`);
+            console.log(`Attempting AI Analysis using ${userModel}`);
+            let data = await callGeminiAPI(apiKey, userModel, app);
 
-            const prompt = `
-            You are an expert venture capitalist analyst. Analyze this startup:
-            Name: ${app['business-name'] || app.name}
-            Stage: ${app.stage}
-            Description: ${app.description}
-            
-            Provide a JSON response with these keys:
-            - score: A number between 0-100 representing investment fit.
-            - verdict: A short 2-3 word category (e.g. "Strong Contender", "High Risk").
-            - summary: A 2-sentence executive summary.
-            
-            Do not include emojis. Keep it professional. Do not include markdown formatting, just raw JSON.
-            `;
-
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }]
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                console.error('Gemini API Error Details:', errorData);
-                throw new Error(errorData.error?.message || 'API Request Failed');
-            }
-
-            const result = await response.json();
-            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-
-            if (!text) throw new Error('No content generated');
-
-            // Clean markdown jsons if present
-            const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            const data = JSON.parse(cleanText);
-
-            // Save to Firestore so we don't pay to re-analyze
+            // Save to Firestore
             if (app.firestoreId && db) {
                 db.collection("applications").doc(app.firestoreId).update({
                     aiAnalysis: data
@@ -365,16 +329,67 @@ async function generateAIReport(app) {
             showToast('Analysis complete', 'success');
 
         } catch (error) {
-            console.error('AI Integration Error:', error);
-            showToast(`AI Error: ${error.message}. Switching to Simulation.`, 'error');
-            setTimeout(() => {
-                runSimulation(app, btn, content, scoreEl, verdictEl, summaryEl);
-            }, 5000);
+            console.warn(`Primary model failed: ${error.message}. Retrying with fallback...`);
+
+            // Fallback Retry
+            try {
+                const fallbackModel = 'gemini-1.5-flash';
+                console.log(`Retrying with ${fallbackModel}`);
+                let data = await callGeminiAPI(apiKey, fallbackModel, app);
+
+                showToast(`Used fallback model (${fallbackModel})`, 'warning');
+                finalizeAI(data.score, data.verdict, data.summary, btn, content, scoreEl, verdictEl, summaryEl);
+
+            } catch (fallbackError) {
+                console.error('All AI attempts failed:', fallbackError);
+                showToast(`AI Error: ${fallbackError.message}. Switching to Simulation.`, 'error');
+                setTimeout(() => {
+                    runSimulation(app, btn, content, scoreEl, verdictEl, summaryEl);
+                }, 4000);
+            }
         }
     } else {
         // --- SIMULATION MODE ---
+        showToast('No API Key found. Using Simulation.', 'info');
         runSimulation(app, btn, content, scoreEl, verdictEl, summaryEl);
     }
+}
+
+async function callGeminiAPI(key, model, app) {
+    const prompt = `
+    You are an expert venture capitalist analyst. Analyze this startup:
+    Name: ${app['business-name'] || app.name}
+    Stage: ${app.stage}
+    Description: ${app.description}
+    
+    Provide a JSON response with these keys:
+    - score: A number between 0-100 representing investment fit.
+    - verdict: A short 2-3 word category (e.g. "Strong Contender", "High Risk").
+    - summary: A 2-sentence executive summary.
+    
+    Do not include emojis. Keep it professional. Do not include markdown formatting, just raw JSON.
+    `;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+        })
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || `API Error ${response.status}`);
+    }
+
+    const result = await response.json();
+    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!text) throw new Error('No content generated');
+
+    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(cleanText);
 }
 
 function runSimulation(app, btn, content, scoreEl, verdictEl, summaryEl) {
